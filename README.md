@@ -181,10 +181,10 @@ curl -X GET http://$fqdndotnet:8080/api/LogsSaude
 ```
 
 ```bash
-az container exec --resource-group rg-clyvocare --name oracle-clyvo --exec-command "sqlplus -s clyvocare/ClyvoApp2026@//localhost/XEPDB1"
+az container exec --resource-group rg-clyvocare --name oracle-clyvo --exec-command "sqlplus clyvocare/ClyvoApp2026@//localhost/XEPDB1"
 ```
 
-No sqlplus:
+Espere aparecer `SQL>`. Só então cola o `SELECT`. Sem o `SQL>`, ainda não entrou (ou o comando ainda está abrindo).
 
 ```sql
 SELECT * FROM TB_CC_PET;
