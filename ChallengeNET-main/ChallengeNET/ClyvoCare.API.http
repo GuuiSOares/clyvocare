@@ -1,0 +1,35 @@
+@ClyvoCare.API_HostAddress = http://localhost:8080
+
+### Health
+GET {{ClyvoCare.API_HostAddress}}/health/live
+GET {{ClyvoCare.API_HostAddress}}/health/ready
+
+### Pets - CORE
+GET {{ClyvoCare.API_HostAddress}}/api/Pets
+GET {{ClyvoCare.API_HostAddress}}/api/Pets/1
+
+POST {{ClyvoCare.API_HostAddress}}/api/Pets
+Content-Type: application/json
+
+{
+  "nome": "Thor",
+  "especie": "Cachorro",
+  "dataNascimento": "2022-04-15",
+  "usuarioId": 1
+}
+
+### Logs de Saude - CORE
+GET {{ClyvoCare.API_HostAddress}}/api/LogsSaude
+GET {{ClyvoCare.API_HostAddress}}/api/LogsSaude/1
+GET {{ClyvoCare.API_HostAddress}}/api/LogsSaude/pet/1
+
+POST {{ClyvoCare.API_HostAddress}}/api/LogsSaude
+Content-Type: application/json
+
+{
+  "peso": 12.50,
+  "temperatura": 38.60,
+  "batimentosCardiacos": 110,
+  "observacoes": "Dispositivo IoT coletou metricas normais durante o repouso.",
+  "petId": 1
+}

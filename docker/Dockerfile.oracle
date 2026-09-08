@@ -1,0 +1,5 @@
+FROM gvenzl/oracle-xe:21-slim-faststart
+
+EXPOSE 1521
+
+COPY script_bd.sql /container-entrypoint-initdb.d/01_script_bd.sql

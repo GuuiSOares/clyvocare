@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/ChallengeNET/">
+    <Project Path="ChallengeNET/ClyvoCare.API.csproj" />
+  </Folder>
+  <Project Path="ClyvoCare.IntegrationTests/ClyvoCare.IntegrationTests.csproj" />
+  <Project Path="ClyvoCare.UnitTests/ClyvoCare.UnitTests.csproj" />
+</Solution>
