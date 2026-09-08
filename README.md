@@ -125,7 +125,7 @@ docker run -d --name oracle-clyvo -p 1521:1521 \
   oracle-clyvo
 
 docker run -d --name api-clyvo -p 8080:8080 \
-  -e ConnectionStrings__DefaultConnection="User Id=clyvocare;Password=ClyvoApp2026;Data Source=host.docker.internal:1521/XEPDB1;" \
+  -e ConnectionStrings__DefaultConnection="User Id=clyvocare;Password=ClyvoApp2026;Data Source=//host.docker.internal:1521/XEPDB1;" \
   api-clyvo
 ```
 

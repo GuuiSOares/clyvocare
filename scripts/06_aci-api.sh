@@ -9,6 +9,7 @@ imageName="api-clyvo"
 tag="v1"
 keyVaultName="kv-clyvo-$rm"
 oracleURL=$(az container show --resource-group "$resourceGroup" --name "$aciNameOracle" --query ipAddress.fqdn --output tsv)
+conn=$(az keyvault secret show --name connection-strings --vault-name "$keyVaultName" --query value -o tsv | sed "s/oracle-clyvo/$oracleURL/")
 
 az provider register --namespace Microsoft.ContainerInstance
 
@@ -29,7 +30,7 @@ az container create \
     ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
   --secure-environment-variables \
-    ConnectionStrings__DefaultConnection=$(az keyvault secret show --name connection-strings --vault-name "$keyVaultName" --query value -o tsv | sed "s/oracle-clyvo/$oracleURL/") \
+    "ConnectionStrings__DefaultConnection=${conn}" \
   --restart-policy Always
 
 sleep 25

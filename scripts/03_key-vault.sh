@@ -5,7 +5,7 @@ location="eastus"
 ORACLE_PASSWORD=ClyvoOra2026
 APP_USER=clyvocare
 APP_USER_PASSWORD=ClyvoApp2026
-CONNECTIONSTRINGS='User Id=clyvocare;Password=ClyvoApp2026;Data Source=oracle-clyvo:1521/XEPDB1;'
+CONNECTIONSTRINGS='User Id=clyvocare;Password=ClyvoApp2026;Data Source=//oracle-clyvo:1521/XEPDB1;'
 
 acrName="clyvocare$rm"
 ACRUSERNAME=$(az acr credential show --name "$acrName" --resource-group "$resourceGroup" --query username --output tsv)
