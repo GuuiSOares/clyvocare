@@ -45,7 +45,11 @@ CRUD completo (incluir, alterar, excluir, consultar) em **Pet** e **Log de Saúd
 
 ## 4. How To — execução
 
-Pré-requisitos: **Git Bash** (ou Azure Cloud Shell em Bash) e **Docker Desktop** no passo 4.5.
+Abra o **Git Bash** (menu Iniciar → Git Bash). Não use o PowerShell: os arquivos `.sh` não rodam nele.
+
+Precisa ter instalado: [Git](https://git-scm.com/download/win), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli-windows) (`az`) e, a partir do passo 4.5, o [Docker Desktop](https://www.docker.com/products/docker-desktop/) aberto (ícone da baleia, motor rodando).
+
+Cole os comandos na ordem, um bloco de cada vez. Depois do clone, todos os `./scripts/...` são na pasta `clyvocare`.
 
 ### 4.1 Clone
 
@@ -55,12 +59,18 @@ cd clyvocare
 ls
 ```
 
+Tem que aparecer `ChallengeNET-main`, `docker`, `docs`, `scripts`, `script_bd.sql` e `README.md`.
+
 ### 4.2 Login na Azure
+
+No mesmo Git Bash:
 
 ```bash
 az login
 az account show
 ```
+
+O `az login` abre o navegador. Entre com a conta da Azure da disciplina e volte no Git Bash.
 
 ### 4.3 Permissão dos scripts
 
@@ -70,19 +80,29 @@ chmod +x scripts/*.sh
 
 ### 4.4 Criar recursos na Azure (CLI)
 
+Ainda no Git Bash, na pasta `clyvocare`:
+
 ```bash
 ./scripts/00_resource-group.sh
 ./scripts/01_acr.sh
 ./scripts/03_key-vault.sh
 ```
 
+Cada linha sobe um recurso (Resource Group, ACR, Key Vault). Espere uma terminar para rodar a próxima.
+
 ### 4.5 Build, tag, push e run
+
+Este passo é na **sua máquina**, no Git Bash, com o **Docker Desktop já aberto**.
+
+1. Abra o Docker Desktop e espere o motor iniciar.
+2. Confira se o Git Bash ainda está em `clyvocare` (`pwd`).
+3. Rode **este comando** e espere terminar (o Oracle demora vários minutos):
 
 ```bash
 ./scripts/04_build-push.sh
 ```
 
-Comandos equivalentes:
+Esse script já faz o `docker build`, o `docker tag` e o `docker push` para o ACR. **Não precisa colar o bloco abaixo.** Ele está aqui só para mostrar o que o script executa:
 
 ```bash
 docker build -f docker/Dockerfile.oracle -t oracle-clyvo .
@@ -94,6 +114,8 @@ docker push clyvocare562673.azurecr.io/oracle-clyvo:v1
 docker push clyvocare562673.azurecr.io/api-clyvo:v1
 az acr repository list --name clyvocare562673 --output table
 ```
+
+Quando o script `04` acabar, suba as imagens **localmente** com `docker run` (ainda no Git Bash):
 
 ```bash
 docker run -d --name oracle-clyvo -p 1521:1521 \
@@ -107,32 +129,49 @@ docker run -d --name api-clyvo -p 8080:8080 \
   api-clyvo
 ```
 
+Isso é o teste na sua máquina. O Oracle local também demora a ficar pronto. O deploy na Azure (ACI) é o passo 4.6; para não duplicar container com o mesmo nome, pare o local antes de seguir:
+
+```bash
+docker stop api-clyvo oracle-clyvo
+docker rm api-clyvo oracle-clyvo
+```
+
 ### 4.6 Subir Oracle e API na ACI
+
+Ainda no Git Bash, na pasta `clyvocare`. Primeiro o banco:
 
 ```bash
 ./scripts/05_aci-oracle.sh
 ```
 
+O script espera um pouco e mostra o log. Se ainda não aparecer `DATABASE IS READY TO USE`, rode de novo até aparecer:
+
 ```bash
 az container logs --resource-group rg-clyvocare --name oracle-clyvo
 ```
 
-Aguarde `DATABASE IS READY TO USE` no log.
+Só depois disso a API:
 
 ```bash
 ./scripts/06_aci-api.sh
 ```
+
+Guarde o FQDN que o script imprime. Se precisar de novo:
 
 ```bash
 fqdndotnet=$(az container show --resource-group rg-clyvocare --name api-clyvo --query ipAddress.fqdn --output tsv)
 echo $fqdndotnet
 ```
 
+No navegador (troque `$fqdndotnet` pelo valor do `echo`):
+
 - Swagger: `http://$fqdndotnet:8080/swagger`
 - Live: `http://$fqdndotnet:8080/health/live`
 - Ready: `http://$fqdndotnet:8080/health/ready`
 
 ### 4.7 CRUD + SELECT no Oracle
+
+Os `curl` são no Git Bash. O `SELECT` é dentro do sqlplus (depois do `az container exec`). Para sair do sqlplus: `EXIT`.
 
 **Consulta**
 
@@ -145,10 +184,14 @@ curl -X GET http://$fqdndotnet:8080/api/LogsSaude
 az container exec --resource-group rg-clyvocare --name oracle-clyvo --exec-command "sqlplus -s clyvocare/ClyvoApp2026@//localhost/XEPDB1"
 ```
 
+No sqlplus:
+
 ```sql
 SELECT * FROM TB_CC_PET;
 SELECT * FROM TB_CC_LOG_SAUDE;
 ```
+
+`EXIT` e volte ao Git Bash. Depois de cada POST/PUT/DELETE abaixo, entre de novo no sqlplus e rode os dois `SELECT`.
 
 **Inserção**
 
