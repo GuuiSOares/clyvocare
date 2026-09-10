@@ -1,4 +1,6 @@
-FROM gvenzl/oracle-xe:21-slim-faststart
+FROM gvenzl/oracle-xe:21-slim
+
+USER root
 
 EXPOSE 1521
 

@@ -24,7 +24,7 @@ CRUD completo (incluir, alterar, excluir, consultar) em **Pet** e **Log de Saúd
 
 - Histórico contínuo de sinais vitais, sem depender só da consulta presencial.
 - Temperatura fora de 30–45 °C é rejeitada na API, evitando lixo para modelo preditivo.
-- Persistência na nuvem: o `SELECT` no Oracle prova o que a API gravou.
+- Persistência na nuvem: Azure Files montado em `/opt/oracle/oradata`. O `SELECT` prova o que a API gravou; o volume mantém os dados se o ACI reiniciar.
 - Mesma imagem no ACR e no ACI.
 - Segredos no Key Vault, não no código da API.
 
@@ -34,12 +34,12 @@ CRUD completo (incluir, alterar, excluir, consultar) em **Pet** e **Log de Saúd
 
 **Como funciona**
 
-1. Azure CLI cria o Resource Group `rg-clyvocare`, o ACR `clyvocare562673` e o Key Vault `kv-clyvo-562673`.
-2. `docker build` gera `oracle-clyvo` (Oracle XE + `script_bd.sql`) e `api-clyvo` (API .NET, usuário `appuser`).
+1. Azure CLI cria o Resource Group `rg-clyvocare`, o ACR `clyvocare562673`, a Storage Account `volclyvocare562673` (File Share `oracle-clyvo-volume`) e o Key Vault `kv-clyvo-562673`.
+2. `docker build` gera `oracle-clyvo` (Oracle XE `21-slim`, sem `faststart`, + `script_bd.sql`) e `api-clyvo` (API .NET, usuário `appuser`, sem root).
 3. `docker tag` + `docker push` enviam as imagens ao ACR.
-4. ACI `oracle-clyvo` puxa a imagem do ACR e sobe o Oracle na porta 1521 (PDB `XEPDB1`).
-5. ACI `api-clyvo` puxa a imagem do ACR, recebe a connection string do Key Vault (FQDN público do Oracle) e sobe na porta 8080.
-6. A API responde em `http://<fqdn-api>:8080`, grava em `TB_CC_PET` e `TB_CC_LOG_SAUDE`. O `SELECT` no container Oracle prova a persistência.
+4. ACI `oracle-clyvo` puxa a imagem do ACR, sobe Linux como root, monta o Azure Files em `/opt/oracle/oradata` e abre a porta 1521 (PDB `XEPDB1`).
+5. ACI `api-clyvo` puxa a imagem do ACR, recebe a connection string do Key Vault (FQDN público do Oracle) e sobe na porta 8080 **sem** root.
+6. A API responde em `http://<fqdn-api>:8080`, grava em `TB_CC_PET` e `TB_CC_LOG_SAUDE`. O dado fica no volume `/opt/oracle/oradata`; o `SELECT` no Oracle confirma.
 
 ---
 
@@ -85,10 +85,11 @@ Ainda no Git Bash, na pasta `clyvocare`:
 ```bash
 ./scripts/00_resource-group.sh
 ./scripts/01_acr.sh
+./scripts/02_store-account.sh
 ./scripts/03_key-vault.sh
 ```
 
-Cada linha sobe um recurso (Resource Group, ACR, Key Vault). Espere uma terminar para rodar a próxima.
+Cada linha sobe um recurso (Resource Group, ACR, Storage Account + File Share, Key Vault). Espere uma terminar para rodar a próxima.
 
 ### 4.5 Build, tag, push e run
 
@@ -118,7 +119,11 @@ az acr repository list --name clyvocare562673 --output table
 Quando o script `04` acabar, suba as imagens **localmente** com `docker run` (ainda no Git Bash):
 
 ```bash
+docker volume create oracle-clyvo-data
+
 docker run -d --name oracle-clyvo -p 1521:1521 \
+  --user 0 \
+  -v oracle-clyvo-data:/opt/oracle/oradata \
   -e ORACLE_PASSWORD=ClyvoOra2026 \
   -e APP_USER=clyvocare \
   -e APP_USER_PASSWORD=ClyvoApp2026 \
@@ -144,7 +149,7 @@ Ainda no Git Bash, na pasta `clyvocare`. Primeiro o banco:
 ./scripts/05_aci-oracle.sh
 ```
 
-O script espera um pouco e mostra o log. Se ainda não aparecer `DATABASE IS READY TO USE`, rode de novo até aparecer:
+O script recria o ACI Linux como root, monta o File Share em `/opt/oracle/oradata` e espera um pouco. Sem `faststart` a primeira subida demora vários minutos (criação do banco no volume). Se ainda não aparecer `DATABASE IS READY TO USE`, rode de novo até aparecer:
 
 ```bash
 az container logs --resource-group rg-clyvocare --name oracle-clyvo
@@ -238,6 +243,16 @@ curl -X DELETE http://$fqdndotnet:8080/api/Pets/3
 SELECT * FROM TB_CC_PET;
 SELECT * FROM TB_CC_LOG_SAUDE;
 ```
+
+**Persistência no volume**
+
+Os `SELECT` acima mostram o dado no Oracle. Para provar que está no Azure Files (`/opt/oracle/oradata`) e não só na memória do container:
+
+```bash
+az container restart --resource-group rg-clyvocare --name oracle-clyvo
+```
+
+Espere o banco voltar (`DATABASE IS READY TO USE` nos logs), entre de novo no sqlplus e rode os dois `SELECT`. As linhas continuam lá.
 
 ### 4.8 Logs dos containers
 
