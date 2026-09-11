@@ -1,4 +1,5 @@
 #!/bin/bash
+export MSYS_NO_PATHCONV=1
 rm=562673
 location="eastus"
 resourceGroup="rg-clyvocare"
