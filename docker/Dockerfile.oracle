@@ -1,7 +1,11 @@
 FROM gvenzl/oracle-xe:21-slim
 
 USER root
+COPY docker/oracle-entrypoint.sh /oracle-entrypoint.sh
+RUN chmod +x /oracle-entrypoint.sh \
+    && mkdir -p /opt/oracle/product/21c/dbhomeXE/network/log \
+    && chmod 777 /opt/oracle/product/21c/dbhomeXE/network/log
 
 EXPOSE 1521
-
 COPY script_bd.sql /container-entrypoint-initdb.d/01_script_bd.sql
+ENTRYPOINT ["/oracle-entrypoint.sh"]
