@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 rm=562673
 resourceGroup="rg-clyvocare"
 acrName="clyvocare$rm"

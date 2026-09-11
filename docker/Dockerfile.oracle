@@ -2,11 +2,21 @@ FROM gvenzl/oracle-xe:21-slim
 
 USER root
 COPY docker/oracle-entrypoint.sh /oracle-entrypoint.sh
-RUN sed -i 's/\r$//' /oracle-entrypoint.sh \
-    && chmod +x /oracle-entrypoint.sh \
+COPY docker/oracle-ready.sh /oracle-ready.sh
+COPY docker/patch-password-file.sh /patch-password-file.sh
+COPY docker/persist-password-file.sh /container-entrypoint-startdb.d/01_persist-password-file.sh
+RUN microdnf -y install util-linux \
+    && microdnf clean all \
+    && sed -i 's/\r$//' /oracle-entrypoint.sh \
+    && sed -i 's/\r$//' /oracle-ready.sh \
+    && sed -i 's/\r$//' /patch-password-file.sh /container-entrypoint-startdb.d/01_persist-password-file.sh \
+    && bash /patch-password-file.sh \
+    && chmod +x /container-entrypoint-startdb.d/01_persist-password-file.sh \
+    && chmod +x /oracle-entrypoint.sh /oracle-ready.sh \
     && mkdir -p /opt/oracle/product/21c/dbhomeXE/network/log \
     && chmod 777 /opt/oracle/product/21c/dbhomeXE/network/log
 
 EXPOSE 1521
+HEALTHCHECK --interval=30s --timeout=15s --start-period=10m --retries=3 CMD /oracle-ready.sh
 COPY script_bd.sql /container-entrypoint-initdb.d/01_script_bd.sql
 ENTRYPOINT ["/bin/bash", "/oracle-entrypoint.sh"]

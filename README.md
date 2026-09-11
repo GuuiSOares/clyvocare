@@ -63,8 +63,6 @@ Tem que aparecer `ChallengeNET-main`, `docker`, `docs`, `scripts`, `script_bd.sq
 
 ### 4.2 Login na Azure
 
-No mesmo Git Bash:
-
 ```bash
 az login
 az account show
@@ -80,8 +78,6 @@ chmod +x scripts/*.sh
 
 ### 4.4 Criar recursos na Azure (CLI)
 
-Ainda no Git Bash, na pasta `clyvocare`:
-
 ```bash
 ./scripts/00_resource-group.sh
 ./scripts/01_acr.sh
@@ -91,32 +87,17 @@ Ainda no Git Bash, na pasta `clyvocare`:
 
 Cada linha sobe um recurso (Resource Group, ACR, Storage Account + File Share, Key Vault). Espere uma terminar para rodar a próxima.
 
-### 4.5 Build, tag, push e run
+### 4.5 Build, tag, push e run (local)
 
-Este passo é na **sua máquina**, no Git Bash, com o **Docker Desktop já aberto**.
-
-1. Abra o Docker Desktop e espere o motor iniciar.
-2. Confira se o Git Bash ainda está em `clyvocare` (`pwd`).
-3. Rode **este comando** e espere terminar (o Oracle demora vários minutos):
+Com o **Docker Desktop já aberto**, na pasta `clyvocare`:
 
 ```bash
 ./scripts/04_build-push.sh
 ```
 
-Esse script já faz o `docker build`, o `docker tag` e o `docker push` para o ACR. **Não precisa colar o bloco abaixo.** Ele está aqui só para mostrar o que o script executa:
+O script faz `docker build`, `docker tag` e `docker push` das imagens `oracle-clyvo:v1` e `api-clyvo:v1` para o ACR. Espere terminar (o build do Oracle demora).
 
-```bash
-docker build -f docker/Dockerfile.oracle -t oracle-clyvo .
-docker build -f docker/Dockerfile -t api-clyvo .
-az acr login --name clyvocare562673
-docker tag oracle-clyvo clyvocare562673.azurecr.io/oracle-clyvo:v1
-docker tag api-clyvo clyvocare562673.azurecr.io/api-clyvo:v1
-docker push clyvocare562673.azurecr.io/oracle-clyvo:v1
-docker push clyvocare562673.azurecr.io/api-clyvo:v1
-az acr repository list --name clyvocare562673 --output table
-```
-
-Quando o script `04` acabar, suba as imagens **localmente** com `docker run` (ainda no Git Bash):
+Depois, teste **na sua máquina** com `docker run` (ainda no Git Bash):
 
 ```bash
 docker volume create oracle-clyvo-data
@@ -134,41 +115,37 @@ docker run -d --name api-clyvo -p 8080:8080 \
   api-clyvo
 ```
 
-Isso é o teste na sua máquina. O Oracle local também demora a ficar pronto. O deploy na Azure (ACI) é o passo 4.6; para não duplicar container com o mesmo nome, pare o local antes de seguir:
+O Oracle local demora a ficar pronto. Confira no Docker Desktop se os dois containers estão rodando. API local: `http://localhost:8080/swagger`.
+
+Antes do deploy na Azure, pare o local (não pode ter o mesmo nome de container):
 
 ```bash
 docker stop api-clyvo oracle-clyvo
 docker rm api-clyvo oracle-clyvo
 ```
 
-### 4.6 Subir Oracle e API na ACI
+### 4.6 Subir Oracle e API na ACI (Azure)
 
-Ainda no Git Bash, na pasta `clyvocare`. Primeiro o banco:
+Na Azure **não** se usa `docker run`. Sobe com Azure CLI (`az container create`), pelos scripts:
 
 ```bash
 ./scripts/05_aci-oracle.sh
 ```
 
-O script recria o ACI Linux como root, monta o File Share em `/opt/oracle/oradata` e espera um pouco. Sem `faststart` a primeira subida demora vários minutos (criação do banco no volume). Se ainda não aparecer `DATABASE IS READY TO USE`, rode de novo até aparecer:
+O script cria o ACI **Linux** como **root**, monta o File Share em `/opt/oracle/oradata` e só termina com sucesso quando aparece `CLYVOCARE_DATABASE_READY`. Sem `faststart`, a primeira subida demora vários minutos — espere o script acabar.
 
-```bash
-az container logs --resource-group rg-clyvocare --name oracle-clyvo
-```
-
-Só depois disso a API:
+Só depois:
 
 ```bash
 ./scripts/06_aci-api.sh
 ```
 
-Guarde o FQDN que o script imprime. Se precisar de novo:
+Guarde o FQDN:
 
 ```bash
 fqdndotnet=$(az container show --resource-group rg-clyvocare --name api-clyvo --query ipAddress.fqdn --output tsv)
 echo $fqdndotnet
 ```
-
-No navegador (troque `$fqdndotnet` pelo valor do `echo`):
 
 - Swagger: `http://$fqdndotnet:8080/swagger`
 - Live: `http://$fqdndotnet:8080/health/live`
@@ -176,7 +153,7 @@ No navegador (troque `$fqdndotnet` pelo valor do `echo`):
 
 ### 4.7 CRUD + SELECT no Oracle
 
-Os `curl` são no Git Bash. O `SELECT` é dentro do sqlplus (depois do `az container exec`). Para sair do sqlplus: `EXIT`.
+Os `curl` são no Git Bash. O `SELECT` é no sqlplus (depois do `az container exec`). Para sair: `EXIT`.
 
 **Consulta**
 
@@ -189,14 +166,10 @@ curl -X GET http://$fqdndotnet:8080/api/LogsSaude
 az container exec --resource-group rg-clyvocare --name oracle-clyvo --exec-command "sqlplus clyvocare/ClyvoApp2026@//localhost/XEPDB1"
 ```
 
-Espere aparecer `SQL>`. Só então cola o `SELECT`. Sem o `SQL>`, ainda não entrou (ou o comando ainda está abrindo).
-
 ```sql
 SELECT * FROM TB_CC_PET;
 SELECT * FROM TB_CC_LOG_SAUDE;
 ```
-
-`EXIT` e volte ao Git Bash. Depois de cada POST/PUT/DELETE abaixo, entre de novo no sqlplus e rode os dois `SELECT`.
 
 **Inserção**
 
@@ -208,11 +181,6 @@ curl -X POST http://$fqdndotnet:8080/api/Pets \
 curl -X POST http://$fqdndotnet:8080/api/LogsSaude \
   -H "Content-Type: application/json" \
   -d '{"peso":12.50,"temperatura":38.60,"batimentosCardiacos":110,"observacoes":"Coleta IoT em repouso.","petId":1}'
-```
-
-```sql
-SELECT * FROM TB_CC_PET;
-SELECT * FROM TB_CC_LOG_SAUDE;
 ```
 
 **Alteração**
@@ -227,17 +195,14 @@ curl -X PUT http://$fqdndotnet:8080/api/LogsSaude/1 \
   -d '{"peso":29.10,"temperatura":39.20,"batimentosCardiacos":118,"observacoes":"Febre leve detectada pelo sensor.","petId":1}'
 ```
 
-```sql
-SELECT * FROM TB_CC_PET;
-SELECT * FROM TB_CC_LOG_SAUDE;
-```
-
 **Exclusão**
 
 ```bash
 curl -X DELETE http://$fqdndotnet:8080/api/LogsSaude/3
 curl -X DELETE http://$fqdndotnet:8080/api/Pets/3
 ```
+
+Depois de cada operação, no sqlplus:
 
 ```sql
 SELECT * FROM TB_CC_PET;
@@ -246,15 +211,21 @@ SELECT * FROM TB_CC_LOG_SAUDE;
 
 **Persistência no volume**
 
-Os `SELECT` acima mostram o dado no Oracle. Para provar que está no Azure Files (`/opt/oracle/oradata`) e não só na memória do container:
+Depois de gravar um registro com a API e confirmar no `SELECT`:
 
 ```bash
 az container restart --resource-group rg-clyvocare --name oracle-clyvo
 ```
 
-Espere o banco voltar (`DATABASE IS READY TO USE` nos logs), entre de novo no sqlplus e rode os dois `SELECT`. As linhas continuam lá.
+Espere alguns minutos, confira o log até o banco voltar:
 
-### 4.8 Logs dos containers
+```bash
+az container logs --resource-group rg-clyvocare --name oracle-clyvo
+```
+
+Entre de novo no sqlplus e rode os `SELECT`. As linhas continuam — o dado está no Azure Files (`/opt/oracle/oradata`).
+
+### 4.8 Logs
 
 ```bash
 az container logs --resource-group rg-clyvocare --name oracle-clyvo
@@ -265,4 +236,5 @@ az container logs --resource-group rg-clyvocare --name api-clyvo
 
 ```bash
 ./scripts/99_cleanup.sh
+az keyvault purge --name kv-clyvo-562673 --location eastus
 ```

@@ -14,7 +14,7 @@ if ! az storage account show --name "$storageAccountName" --resource-group "$res
     --location "$location" \
     --sku Standard_LRS
 else
-  echo "A conta de armazenamento '$storageAccountName' já existe"
+  echo "A conta de armazenamento '$storageAccountName' ja existe"
 fi
 
 connection_string=$(az storage account show-connection-string --name "$storageAccountName" --resource-group "$resourceGroup" --query connectionString --output tsv)
@@ -22,5 +22,5 @@ connection_string=$(az storage account show-connection-string --name "$storageAc
 if ! az storage share exists --name "$file_share_name" --account-name "$storageAccountName" --connection-string "$connection_string" | grep true; then
   az storage share create --name "$file_share_name" --account-name "$storageAccountName" --connection-string "$connection_string"
 else
-  echo "O compartilhamento de arquivos '$file_share_name' já existe"
+  echo "O compartilhamento de arquivos '$file_share_name' ja existe"
 fi
